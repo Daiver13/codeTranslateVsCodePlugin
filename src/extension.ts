@@ -2,7 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import { outputFileSync, readJsonSync, readdirSync } from 'fs-extra';
-// import kebabCase from "lodash/kebabCase";
+const kebabCase = require('lodash/kebabCase');
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -17,7 +17,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "codetranslate" is now active!');
+	// console.log('Congratulations, your extension "codetranslate" is now active!');
 
 	context.subscriptions.push(vscode.commands.registerCommand('CodeTranslate.addKey', async () => {
     if (!basePath) {
@@ -47,30 +47,33 @@ export function activate(context: vscode.ExtensionContext) {
     const key = resOfInputBoxKey;
 
     const pathArray = key.split(".");
+    pathArray[pathArray.length - 1] = kebabCase(pathArray[pathArray.length - 1]);
 
-      const fileJson = readJsonSync(`${basePath}/${DEFAULT_LOCALE}/${pathArray.slice(0, pathArray.length - 1).join('/')}.json`);
-      // If key already exists
-      if (fileJson && fileJson.hasOwnProperty(pathArray[pathArray.length - 1])) {
-        vscode.window.showErrorMessage(`Key "${key}" already exists!`);
+    const fileJson = readJsonSync(`${basePath}/${DEFAULT_LOCALE}/${pathArray.slice(0, pathArray.length - 1).join('/')}.json`);
+    // If key already exists
+    if (fileJson && fileJson.hasOwnProperty(pathArray[pathArray.length - 1])) {
+      vscode.window.showErrorMessage(`Key "${key}" already exists!`);
 
-        return;
+      return;
+    }
+
+    const langs = await readdirSync(basePath, { withFileTypes: true })
+      .filter(dirent => dirent.isDirectory())
+      .map(dirent => dirent.name);
+
+    langs.forEach(locale => {
+      const localFileJson = readJsonSync(`${basePath}/${locale}/${pathArray.slice(0, pathArray.length - 1).join('/')}.json`);
+
+      if (localFileJson) {
+        const res = {...localFileJson, [pathArray[pathArray.length - 1]]: locale === DEFAULT_LOCALE ? resOfInputBoxValue : ''};
+
+        outputFileSync(`${basePath}/${locale}/${pathArray.slice(0, pathArray.length - 1).join('/')}.json`, JSON.stringify(res, null, 2));
+      } else {
+        outputFileSync(`${basePath}/${locale}/${pathArray.slice(0, pathArray.length - 1).join('/')}.json`, JSON.stringify({}, null, 2));
       }
+    });
 
-      const langs = readdirSync(basePath);
-
-      langs.forEach(locale => {
-        const localFileJson = readJsonSync(`${basePath}/${locale}/${pathArray.slice(0, pathArray.length - 1).join('/')}.json`);
-
-        if (localFileJson) {
-          const res = {...localFileJson, [pathArray[pathArray.length - 1]]: locale === DEFAULT_LOCALE ? resOfInputBoxValue : ''};
-
-          outputFileSync(`${basePath}/${locale}/${pathArray.slice(0, pathArray.length - 1).join('/')}.json`, JSON.stringify(res, null, 2));
-        } else {
-          outputFileSync(`${basePath}/${locale}/${pathArray.slice(0, pathArray.length - 1).join('/')}.json`, JSON.stringify({}, null, 2));
-        }
-      });
-
-      vscode.window.showInformationMessage(`Key with name "${key}" has been success added!`);
+    vscode.window.showInformationMessage(`Key with name "${key}" has been success added!`);
 	}));
 }
 
