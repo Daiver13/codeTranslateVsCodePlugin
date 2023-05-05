@@ -1,7 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { outputFileSync, readJsonSync, readdirSync } from 'fs-extra';
+import { outputFileSync, readJsonSync, readdirSync, writeJsonSync } from 'fs-extra';
 const kebabCase = require('lodash/kebabCase');
 
 // This method is called when your extension is activated
@@ -49,9 +49,9 @@ export function activate(context: vscode.ExtensionContext) {
     const pathArray = key.split(".");
     pathArray[pathArray.length - 1] = kebabCase(pathArray[pathArray.length - 1]);
 
-    const fileJson = readJsonSync(`${basePath}/${DEFAULT_LOCALE}/${pathArray.slice(0, pathArray.length - 1).join('/')}.json`);
-    // If key already exists
-    if (fileJson && fileJson.hasOwnProperty(pathArray[pathArray.length - 1])) {
+    const fileJson = readJsonSync(`${basePath}/${DEFAULT_LOCALE}/${pathArray.slice(0, pathArray.length - 1).join('/')}.json`, { throws: false });
+
+    if (!(fileJson === null) && fileJson.hasOwnProperty(pathArray[pathArray.length - 1])) {
       vscode.window.showErrorMessage(`Key "${key}" already exists!`);
 
       return;
@@ -60,6 +60,12 @@ export function activate(context: vscode.ExtensionContext) {
     const langs = await readdirSync(basePath, { withFileTypes: true })
       .filter(dirent => dirent.isDirectory())
       .map(dirent => dirent.name);
+
+    if (fileJson === null) {
+      langs.forEach(locale => {
+        writeJsonSync(`${basePath}/${locale}/${pathArray.slice(0, pathArray.length - 1).join('/')}.json`, {});
+      });
+    }
 
     langs.forEach(locale => {
       const localFileJson = readJsonSync(`${basePath}/${locale}/${pathArray.slice(0, pathArray.length - 1).join('/')}.json`);
